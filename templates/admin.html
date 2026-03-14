@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Btech Cafe</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f1f3f5; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .order-card { 
+            background: white; border-left: 5px solid #E1A95F; 
+            border-radius: 12px; padding: 20px; margin-bottom: 20px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
+        }
+        .status-badge { float: right; background: #fff3cd; color: #856404; padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; }
+        .payment-badge { float: right; margin-right: 10px; background: #e2e3e5; color: #383d41; padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
+        .table-badge { background: #343a40; color: white; padding: 4px 10px; border-radius: 5px; font-size: 0.9rem; margin-left: 10px; }
+        .btn-done { background-color: #28a745; color: white; border: none; padding: 8px 20px; border-radius: 5px; font-weight: bold; }
+        .btn-print { background-color: #007bff; color: white; border: none; padding: 8px 20px; border-radius: 5px; font-weight: bold; margin-right: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Live Orders - Counter 🛒</h2>
+            <div>
+                <span class="badge bg-danger p-2">LIVE</span>
+                <button class="btn btn-outline-primary ms-2" onclick="location.reload()">Manual Refresh 🔄</button>
+            </div>
+        </div>
+
+        <div id="orders-container">
+            {% if not orders %}
+                <div class="text-center py-5">
+                    <p class="text-muted h5">Waiting for new orders...</p>
+                </div>
+            {% else %}
+                {% for order in orders %}
+                <div class="order-card" id="order-card-{{ loop.index0 }}">
+                    <span class="status-badge">Pending</span>
+                    <span class="payment-badge">{{ order.get('payment', 'Not Set') }}</span>
+                    
+                    <h5>Customer: <span class="text-primary">{{ order.get('customer', 'Guest') }}</span> 
+                        <span class="table-badge">📍 Table: {{ order.get('table', 'Counter') }}</span>
+                    </h5>
+                    <hr>
+                    <div id="print-area-{{ loop.index0 }}">
+                        <p><strong>Table No:</strong> {{ order.get('table', 'Counter') }}</p>
+                        <p class="mb-1"><strong>Items:</strong></p>
+                        <ul>
+                            {% for item in order.get('items', []) %}
+                            <li>{{ item.get('name', 'Item') }} - <span>₹{{ item.get('price', 0) }}</span></li>
+                            {% endfor %}
+                        </ul>
+                        <h4 class="text-success mt-2">Total: ₹{{ order.get('total', 0) }}</h4>
+                        <p class="small text-muted">Paid via: {{ order.get('payment', 'Not Set') }}</p>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end mt-3 border-top pt-3">
+                        <button class="btn-print" onclick="printBill('print-area-{{ loop.index0 }}', '{{ order.get('customer', 'Guest') }}', '{{ order.get('table', 'Counter') }}')">Print Bill 📄</button>
+                        <button class="btn-done" onclick="completeOrder('{{ loop.index0 }}')">Mark as Done ✅</button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // 1. Mark as Done Logic
+        function completeOrder(index) {
+            if(confirm("Bhai, order serve ho gaya? Ye list se hat jayega.")) {
+                fetch(`/complete_order/${index}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        location.reload();
+                    }
+                })
+                .catch(err => alert("Error: " + err));
+            }
+        }
+
+        // 2. Updated Print Logic with Table Number
+        function printBill(divId, customerName, tableNo) {
+            const content = document.getElementById(divId).innerHTML;
+            const printWindow = window.open('', '', 'height=600,width=800');
+
+            printWindow.document.write('<html><head><title>Btech Cafe Bill</title>');
+            printWindow.document.write('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">');
+            printWindow.document.write('<style>body{padding:20px; font-family: sans-serif;} .bill-header{text-align:center; margin-bottom:15px;} hr{border-top: 2px dashed #000;}</style>');
+            printWindow.document.write('</head><body>');
+            
+            printWindow.document.write('<div class="bill-header"><h2>☕ BTECH CAFE</h2><p>Agra, UP | Table: ' + tableNo + '</p></div>');
+            printWindow.document.write('<p><strong>Customer:</strong> ' + customerName + '</p>');
+            printWindow.document.write('<p><strong>Date:</strong> ' + new Date().toLocaleString() + '</p>');
+            printWindow.document.write('<hr>');
+            printWindow.document.write(content);
+            printWindow.document.write('<hr>');
+            printWindow.document.write('<p style="text-align:center;"><strong>Thank You! Visit Again</strong></p>');
+            
+            printWindow.document.write('</body></html>');
+
+            printWindow.document.close();
+            
+            setTimeout(function() {
+                printWindow.focus();
+                printWindow.print();
+                printWindow.close();
+            }, 500);
+        }
+
+        // Auto Refresh
+        setTimeout(function(){
+           location.reload();
+        }, 20000); 
+    </script>
+</body>
+</html>
